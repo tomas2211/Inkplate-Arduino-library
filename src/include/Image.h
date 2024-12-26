@@ -46,6 +46,7 @@ class Image : virtual public NetworkClient, virtual public Adafruit_GFX
         BottomLeft,
         TopRight,
         BottomRight,
+        TopCenter,
         _npos
     } Position;
 
@@ -103,6 +104,8 @@ class Image : virtual public NetworkClient, virtual public Adafruit_GFX
 
     bool drawPngFromWeb(const char *url, int x, int y, bool dither = 0, bool invert = 0);
     bool drawPngFromWeb(WiFiClient *s, int x, int y, int32_t len, bool dither = 0, bool invert = 0);
+
+    bool drawPngFromWebAtPosition(const char *url, const int x, const int y, const int w, const int h);
 
     // Should be private, but needed in a png callback :(
     void ditherSwap(int w);

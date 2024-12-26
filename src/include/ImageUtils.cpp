@@ -56,6 +56,10 @@ void Image::getPointsForPosition(const Position &position, const uint16_t imageW
         if (imageHeight < screenHeight)
             *posY = (screenHeight - imageHeight) >> 1;
         break;
+    case TopCenter:
+        if (imageWidth < screenWidth)
+            *posX = (screenWidth - imageWidth) >> 1;
+        break;
     case BottomLeft:
         if (imageHeight < screenHeight)
             *posY = screenHeight - imageHeight;

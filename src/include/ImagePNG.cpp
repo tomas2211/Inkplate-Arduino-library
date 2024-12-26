@@ -404,3 +404,159 @@ bool Image::drawPngFromSdAtPosition(const char *fileName, const Position &positi
 
     return ret;
 }
+
+
+inline float lerp(float s, float e, float t)
+{
+    return s + (e - s) * t;
+}
+inline float blerp(float c00, float c10, float c01, float c11, float tx, float ty)
+{
+    return lerp(lerp(c00, c10, tx), lerp(c01, c11, tx), ty);
+}
+
+struct ImageBuffer
+{
+    uint8_t *imageBuff_ = nullptr;
+    int width_ = 0;
+    int height_ = 0;
+
+    ~ImageBuffer()
+    {
+        if (imageBuff_)
+        {
+            free(imageBuff_);
+        }
+    }
+
+    inline void putPixel(int x, int y, uint8_t px)
+    {
+        if(x < 0 || x >= width_){ return; }
+        if(y < 0 || y >= height_){ return; }
+        *(imageBuff_ + y * width_ + x) = px;
+    }
+
+    inline uint8_t getPixel(int x, int y) const 
+    {
+        if (x < 0) { x = 0; }
+        if (x >= width_) { x = width_ - 1; }
+        if (y < 0) { y = 0; }
+        if (y >= height_) { y = height_ - 1; }
+        return *(imageBuff_ + y * width_ + x);
+    }
+
+    inline uint8_t getPixel(float x, float y) const 
+    {
+        if(x < 0 || x >= width_){ return 255; }
+        if(y < 0 || y >= height_){ return 255; }
+
+        int gxi = (int)x;
+        int gyi = (int)y;
+        uint8_t c00 = getPixel(gxi, gyi);
+        uint8_t c10 = getPixel(gxi+1, gyi);
+        uint8_t c01 = getPixel(gxi, gyi+1);
+        uint8_t c11 = getPixel(gxi+1, gyi+1);
+
+        return blerp(c00, c10, c01, c11, x - gxi, y - gyi);
+    }
+};
+
+static ImageBuffer *_imageBuffer;
+
+
+void pngle_alloc_on_init(pngle_t *pngle, uint32_t w, uint32_t h)
+{
+    if (_imageBuffer->imageBuff_)
+    {
+        free(_imageBuffer->imageBuff_); // just to be safe
+    }
+    _imageBuffer->width_ = w;
+    _imageBuffer->height_ = h;
+    _imageBuffer->imageBuff_ = (uint8_t *)ps_malloc(w * h);
+}
+
+void pngle_save_on_draw(pngle_t *pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4])
+{
+    if (rgba[3])
+    {
+        for (int j = 0; j < h; ++j)
+        {
+            for (int i = 0; i < w; ++i)
+            {
+                uint8_t r = rgba[0];
+                uint8_t g = rgba[1];
+                uint8_t b = rgba[2];
+
+                pngle_ihdr_t *ihdr = pngle_get_ihdr(pngle);
+
+                if (ihdr->depth == 1)
+                {
+                    r = g = b = (b ? 0xFF : 0);
+                }
+
+                _imageBuffer->putPixel(x + i, y + j, RGB8BIT(r, g, b));
+            }
+        }
+    }
+}
+
+bool Image::drawPngFromWebAtPosition(const char *url, const int x, const int y, const int w, const int h)
+{
+    _pngDither = false;
+    _pngInvert = false;
+
+    if (_pngDither)
+    {
+        memset(ditherBuffer, 0, sizeof ditherBuffer);
+    }
+
+    // download file
+    int32_t defaultLen = E_INK_WIDTH * E_INK_HEIGHT * 4 + 100;
+    uint8_t *buff = downloadFile(url, &defaultLen);
+
+    if (!buff)
+    {
+        return 0;
+    }
+
+    ImageBuffer img;
+    _imageBuffer = &img;
+
+    // setup pngle
+    pngle_t *pngle = pngle_new();
+    pngle_set_init_callback(pngle, pngle_alloc_on_init);
+    pngle_set_draw_callback(pngle, pngle_save_on_draw);
+
+    // parse the file
+    if (pngle_feed(pngle, buff, defaultLen) < 0)
+    {
+        if (buff) { free(buff); }
+        pngle_destroy(pngle);
+        _imageBuffer = nullptr;
+        return 0;
+    }
+
+    float scale = std::max((float)img.width_ / w, (float)img.height_ / h);
+
+    int imw = (float)img.width_ / scale;
+    int imh = (float)img.height_ / scale;
+    int x0 = x + ((w - imw) / 2);
+    int x1 = x + w - ((w - imw) / 2);
+    int y0 = y + ((h - imh) / 2);
+    int y1 = y + h - ((h - imh) / 2);
+
+    // bilinear interpolation
+    for (int xp = x0; xp < x1; ++xp)
+    {
+        for (int yp = y0; yp < y1; ++yp)
+        {
+            _imagePtrPng->drawPixel(xp, yp, img.getPixel((xp - x0) * scale, (yp - y0) * scale) >> 5);
+        }
+    }
+
+    if (buff) { free(buff); }
+    pngle_destroy(pngle);
+    _imageBuffer = nullptr;
+
+    return 1;
+}
