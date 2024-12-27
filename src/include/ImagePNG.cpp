@@ -412,5 +412,5 @@ bool Image::drawPngFromSdAtPosition(const char *fileName, const Position &positi
 }
 
 // on problems with compilation (internal error), add the following options to compiler:
-// Inkplate6plus.build.defines=-DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-strategy=memw -DLV_CONF_INCLUDE_SIMPLE -DLV_CONF_SUPPRESS_DEFINE_CHECK -O
-// see ~/.arduino15/packages/Inkplate_Boards/hardware/esp32/8.1.0/boards.txt
+// Inkplate6plus.build.defines=-DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-strategy=memw -DLV_CONF_INCLUDE_SIMPLE
+// -DLV_CONF_SUPPRESS_DEFINE_CHECK -O see ~/.arduino15/packages/Inkplate_Boards/hardware/esp32/8.1.0/boards.txt
